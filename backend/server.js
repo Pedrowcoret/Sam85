@@ -28,6 +28,7 @@ const userWowzaSetupRoutes = require('./routes/user-wowza-setup');
 const appMultiplataformaRoutes = require('./routes/app-multiplataforma');
 const appAndroidRoutes = require('./routes/app-android');
 const smilManagementRoutes = require('./routes/smil-management');
+const dadosConexaoRoutes = require('./routes/dados-conexao');
 
   const app = express();
   const PORT = process.env.PORT || 3001;
@@ -522,6 +523,7 @@ app.use('/api/user-wowza-setup', userWowzaSetupRoutes);
 app.use('/api/app-multiplataforma', appMultiplataformaRoutes);
 app.use('/api/app-android', appAndroidRoutes);
 app.use('/api/smil-management', smilManagementRoutes);
+app.use('/api/dados-conexao', dadosConexaoRoutes);
 
   // Rota de teste
   app.get('/api/test', (req, res) => {

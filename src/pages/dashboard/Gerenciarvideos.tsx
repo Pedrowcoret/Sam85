@@ -35,6 +35,7 @@ interface Folder {
   nome_sanitizado: string;
   caminho_servidor: string;
   servidor_id: number;
+  espaco?: number;
   espaco_usado?: number;
   data_criacao: string;
   status: number;
@@ -552,6 +553,9 @@ const GerenciarVideos: React.FC = () => {
                 <div className="flex items-center">
                   <Folder className="h-5 w-5 text-blue-600 mr-2" />
                   <h3 className="font-medium text-gray-900">{folder.nome}</h3>
+                  {folder.nome !== folder.nome_sanitizado && (
+                    <p className="text-xs text-gray-500">({folder.nome_sanitizado})</p>
+                  )}
                 </div>
                 <div className="flex items-center space-x-1">
                   <button
@@ -605,6 +609,10 @@ const GerenciarVideos: React.FC = () => {
                 <div className="flex justify-between">
                   <span>Espaço usado:</span>
                   <span>{folder.espaco_usado || 0} MB</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Servidor:</span>
+                  <span className="text-xs text-gray-500">ID {folder.servidor_id}</span>
                 </div>
                 {folder.percentage_used !== undefined && (
                   <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
@@ -696,8 +704,12 @@ const GerenciarVideos: React.FC = () => {
                   </div>
                 ))}
               </div>
-                    <span>{folder.espaco_usado || 0} MB</span>
+            </div>
           )}
+
+          {videos.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Video className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <p className="text-lg mb-2">Nenhum vídeo encontrado</p>
               <p className="text-sm">Faça upload de vídeos para começar</p>
             </div>
@@ -833,10 +845,18 @@ const GerenciarVideos: React.FC = () => {
                 </div>
                 {selectedFolderData.server_info && (
                   <div>
+                    <span className="text-gray-600">Arquivos no servidor:</span>
+                    <span className={`ml-2 font-medium ${selectedFolderData.server_info.exists ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                      {selectedFolderData.server_info.exists ? selectedFolderData.server_info.file_count : 'Pasta não existe'}
+                    </span>
+                  </div>
                 )}
                 <div>
                   <span className="text-gray-600">Espaço usado:</span>
-                  <span className="ml-2 font-medium">{selectedFolderData.espaco_usado || 0} MB</span>
+                  <span className="ml-2 font-medium">
+                    {selectedFolderData.espaco_usado || 0} MB / {selectedFolderData.espaco || 1000} MB
+                  </span>
                 </div>
               </div>
 
@@ -846,6 +866,11 @@ const GerenciarVideos: React.FC = () => {
                   <span className="ml-2 font-mono">{selectedFolderData.server_info.path}</span>
                 </div>
               )}
+              
+              <div className="mt-2 text-xs text-gray-500">
+                <span>Nome sanitizado:</span>
+                <span className="ml-2 font-mono">{selectedFolderData.nome_sanitizado}</span>
+              </div>
             </div>
           )}
         </div>

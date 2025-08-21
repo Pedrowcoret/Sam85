@@ -34,7 +34,7 @@ router.get('/obs-config', authMiddleware, async (req, res) => {
 
     // Buscar informações do servidor
     const [serverRows] = await db.execute(
-      `SELECT 
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
         codigo, nome, limite_streamings, streamings_ativas, 
         load_cpu, tipo_servidor, status
        FROM wowza_servers 

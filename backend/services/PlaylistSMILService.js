@@ -396,8 +396,9 @@ class PlaylistSMILService {
                 `SELECT DISTINCT 
                     s.codigo_cliente as user_id,
                     s.usuario,
-                    s.codigo_servidor
+                    f.servidor_id
                  FROM streamings s 
+                LEFT JOIN folders f ON s.codigo_cliente = f.user_id
                  WHERE s.status = 1 AND s.usuario IS NOT NULL`
             );
 
@@ -406,7 +407,7 @@ class PlaylistSMILService {
             for (const user of userRows) {
                 try {
                     const userLogin = user.usuario;
-                    const serverId = user.codigo_servidor || 1;
+                    const serverId = user.servidor_id || 1;
 
                     const result = await this.generateUserSMIL(user.user_id, userLogin, serverId);
                     results.push({

@@ -80,8 +80,8 @@ const DadosConexao: React.FC = () => {
     try {
       const token = await getToken();
       const url = customBitrate ?
-        `/api/streaming/obs-config?bitrate=${customBitrate}` :
-        '/api/streaming/obs-config';
+        `/api/dados-conexao/obs-config?bitrate=${customBitrate}` :
+        '/api/dados-conexao/obs-config';
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }

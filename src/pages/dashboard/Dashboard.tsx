@@ -130,7 +130,7 @@ const Dashboard: React.FC = () => {
               const usageData = await usageResponse.json();
               if (usageData.success) {
                 totalUsed += usageData.usage.used || 0;
-              }
+              totalUsed += folder.espaco_usado || 0;
             }
           } catch (error) {
             console.warn(`Erro ao carregar uso da pasta ${folder.id}:`, error);
@@ -192,6 +192,8 @@ const Dashboard: React.FC = () => {
           } else {
             setObsStreamActive(false);
           }
+          // Usar valor do banco como fallback
+          totalUsed += folder.espaco_usado || 0;
         }
       }
     } catch (error) {
