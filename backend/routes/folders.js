@@ -11,28 +11,24 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Buscar pastas do usuário na tabela streamings
+    // Buscar pastas do usuário na nova tabela folders
     const [rows] = await db.execute(
       `SELECT 
-        codigo as id,
-        identificacao as nome,
-        codigo_servidor,
-        espaco,
+        id,
+        nome,
+        nome_sanitizado,
+        caminho_servidor,
+        servidor_id,
         espaco_usado,
-        data_cadastro,
+        data_criacao,
         status
-       FROM streamings 
-       WHERE codigo_cliente = ? AND status = 1`,
+       FROM folders 
+       WHERE user_id = ? AND status = 1
+       ORDER BY data_criacao DESC`,
       [userId]
     );
 
-    // Se não houver pastas, criar uma pasta padrão
-    if (rows.length === 0) {
-      const userEmail = req.user.email ? req.user.email.split('@')[0] : `user_${userId}`;
-      res.json([{ id: 1, nome: userEmail }]);
-    } else {
-      res.json(rows);
-    }
+    res.json(rows);
   } catch (err) {
     console.error('Erro ao buscar pastas:', err);
     res.status(500).json({ error: 'Erro ao buscar pastas', details: err.message });
@@ -80,8 +76,8 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Verificar se pasta já existe
     const [existingRows] = await db.execute(
-      'SELECT codigo FROM streamings WHERE identificacao = ? AND codigo_cliente = ?',
-      [sanitizedName, userId]
+      'SELECT id FROM folders WHERE user_id = ? AND nome_sanitizado = ?',
+      [userId, sanitizedName]
     );
 
     if (existingRows.length > 0) {
@@ -91,14 +87,16 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    // Criar entrada na tabela streamings para representar a pasta
+    // Construir caminho no servidor
+    const caminhoServidor = `/home/streaming/${userLogin}/${sanitizedName}`;
+
+    // Criar entrada na nova tabela folders
     const [result] = await db.execute(
-      `INSERT INTO streamings (
-        codigo_cliente, codigo_servidor, usuario, senha, senha_transmissao,
-        espectadores, bitrate, espaco, ftp_dir, identificacao, email,
-        data_cadastro, aplicacao, status
-      ) VALUES (?, ?, ?, '', '', 100, 2500, 1000, ?, ?, ?, NOW(), 'live', 1)`,
-      [userId, serverId, userLogin, `/home/streaming/${userLogin}/${sanitizedName}`, sanitizedName, req.user.email]
+      `INSERT INTO folders (
+        user_id, nome, nome_sanitizado, caminho_servidor, servidor_id, 
+        espaco_usado, data_criacao, status
+      ) VALUES (?, ?, ?, ?, ?, 0, NOW(), 1)`,
+      [userId, nome, sanitizedName, caminhoServidor, serverId]
     );
 
     try {
@@ -126,7 +124,7 @@ router.post('/', authMiddleware, async (req, res) => {
     } catch (sshError) {
       console.error('Erro ao criar pasta no servidor:', sshError);
       // Remover entrada do banco se falhou no servidor
-      await db.execute('DELETE FROM streamings WHERE codigo = ?', [result.insertId]);
+      await db.execute('DELETE FROM folders WHERE id = ?', [result.insertId]);
       return res.status(500).json({ 
         error: 'Erro ao criar pasta no servidor',
         details: sshError.message 
@@ -135,12 +133,13 @@ router.post('/', authMiddleware, async (req, res) => {
 
     res.status(201).json({
       id: result.insertId,
-      nome: sanitizedName,
+      nome: nome,
+      nome_sanitizado: sanitizedName,
       original_name: nome,
       sanitized: sanitizedName !== nome.toLowerCase(),
-      espaco: 1000,
       espaco_usado: 0,
-      servidor_id: serverId
+      servidor_id: serverId,
+      caminho_servidor: caminhoServidor
     });
   } catch (err) {
     console.error('Erro ao criar pasta:', err);
@@ -169,7 +168,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     // Verificar se a pasta pertence ao usuário
     const [folderRows] = await db.execute(
-      'SELECT codigo, identificacao, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT id, nome_sanitizado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -178,13 +177,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const oldFolderName = folder.identificacao;
+    const serverId = folder.servidor_id || 1;
+    const oldFolderName = folder.nome_sanitizado;
 
     // Verificar se novo nome já existe
     const [existingRows] = await db.execute(
-      'SELECT codigo FROM streamings WHERE identificacao = ? AND codigo_cliente = ? AND codigo != ?',
-      [sanitizedName, userId, folderId]
+      'SELECT id FROM folders WHERE user_id = ? AND nome_sanitizado = ? AND id != ?',
+      [userId, sanitizedName, folderId]
     );
 
     if (existingRows.length > 0) {
@@ -197,7 +196,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     try {
       // Renomear pasta no servidor via SSH
       const oldPath = `/home/streaming/${userLogin}/${oldFolderName}`;
-      const newPath = `/home/streaming/${userLogin}/${nome}`;
+      const newPath = `/home/streaming/${userLogin}/${sanitizedName}`;
       
       // Verificar se pasta antiga existe
       const checkCommand = `test -d "${oldPath}" && echo "EXISTS" || echo "NOT_EXISTS"`;
@@ -205,14 +204,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
       
       if (checkResult.stdout.includes('EXISTS')) {
         // Renomear pasta
-        const newPath = `/home/streaming/${userLogin}/${sanitizedName}`;
         await SSHManager.executeCommand(serverId, `mv "${oldPath}" "${newPath}"`);
         
         // Definir permissões corretas
         await SSHManager.executeCommand(serverId, `chmod -R 755 "${newPath}"`);
         await SSHManager.executeCommand(serverId, `chown -R streaming:streaming "${newPath}"`);
         
-        console.log(`✅ Pasta renomeada no servidor: ${oldFolderName} -> ${nome}`);
+        console.log(`✅ Pasta renomeada no servidor: ${oldFolderName} -> ${sanitizedName}`);
       } else {
         // Se pasta não existe no servidor, criar nova
         await SSHManager.createUserFolder(serverId, userLogin, sanitizedName);
@@ -228,9 +226,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Atualizar nome no banco de dados
+    const novoCaminhoServidor = `/home/streaming/${userLogin}/${sanitizedName}`;
     await db.execute(
-      'UPDATE streamings SET identificacao = ?, ftp_dir = ? WHERE codigo = ?',
-      [sanitizedName, `/home/streaming/${userLogin}/${sanitizedName}`, folderId]
+      'UPDATE folders SET nome = ?, nome_sanitizado = ?, caminho_servidor = ? WHERE id = ?',
+      [nome, sanitizedName, novoCaminhoServidor, folderId]
     );
 
     // Atualizar caminhos dos vídeos no banco se necessário
@@ -267,7 +266,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Verificar se a pasta pertence ao usuário
     const [folderRows] = await db.execute(
-      'SELECT codigo, identificacao, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT id, nome_sanitizado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -276,8 +275,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const folderName = folder.identificacao;
+    const serverId = folder.servidor_id || 1;
+    const folderName = folder.nome_sanitizado;
 
     // Verificar se há vídeos na pasta
     const [videoCountRows] = await db.execute(
@@ -342,7 +341,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Remover pasta
     await db.execute(
-      'DELETE FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'DELETE FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -365,15 +364,16 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
     // Buscar dados da pasta
     const [folderRows] = await db.execute(
       `SELECT 
-        codigo as id,
-        identificacao as nome,
-        codigo_servidor,
-        espaco,
+        id,
+        nome,
+        nome_sanitizado,
+        caminho_servidor,
+        servidor_id,
         espaco_usado,
-        data_cadastro,
-        ftp_dir
-       FROM streamings 
-       WHERE codigo = ? AND codigo_cliente = ?`,
+        data_criacao,
+        status
+       FROM folders 
+       WHERE id = ? AND user_id = ?`,
       [folderId, userId]
     );
 
@@ -382,8 +382,8 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const folderName = folder.nome;
+    const serverId = folder.servidor_id || 1;
+    const folderName = folder.nome_sanitizado;
 
     // Recalcular espaço usado baseado nos vídeos reais
     const [videoSizeRows] = await db.execute(
@@ -394,6 +394,7 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
     );
     
     const realUsedMB = videoSizeRows[0]?.real_used_mb || 0;
+    
     // Verificar se pasta existe no servidor
     let serverInfo = null;
     try {
@@ -424,7 +425,7 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
         const serverSizeMB = Math.ceil(folderSize / (1024 * 1024));
         if (Math.abs(serverSizeMB - (folder.espaco_usado || 0)) > 5) {
           await db.execute(
-            'UPDATE streamings SET espaco_usado = ? WHERE codigo = ?',
+            'UPDATE folders SET espaco_usado = ? WHERE id = ?',
             [Math.max(serverSizeMB, realUsedMB), folderId]
           );
           folder.espaco_usado = Math.max(serverSizeMB, realUsedMB);
@@ -457,8 +458,7 @@ router.get('/:id/info', authMiddleware, async (req, res) => {
       ...folder,
       video_count_db: videoCountRows[0].count,
       server_info: serverInfo,
-      real_used_mb: realUsedMB,
-      percentage_used: folder.espaco > 0 ? Math.round((folder.espaco_usado / folder.espaco) * 100) : 0
+      real_used_mb: realUsedMB
     });
   } catch (err) {
     console.error('Erro ao buscar informações da pasta:', err);
@@ -475,7 +475,7 @@ router.post('/:id/sync', authMiddleware, async (req, res) => {
 
     // Buscar dados da pasta
     const [folderRows] = await db.execute(
-      'SELECT identificacao, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT nome_sanitizado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -484,8 +484,8 @@ router.post('/:id/sync', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const folderName = folder.identificacao;
+    const serverId = folder.servidor_id || 1;
+    const folderName = folder.nome_sanitizado;
 
     try {
       // Garantir que estrutura completa do usuário existe

@@ -39,11 +39,12 @@ router.get('/videos', authMiddleware, async (req, res) => {
         v.is_mp4,
         v.compativel,
         v.pasta,
-        s.bitrate as user_bitrate_limit,
-        s.identificacao as folder_name,
-        s.codigo_servidor
+        u.bitrate as user_bitrate_limit,
+        f.nome_sanitizado as folder_name,
+        f.servidor_id
        FROM videos v
-       LEFT JOIN streamings s ON v.pasta = s.codigo
+       LEFT JOIN folders f ON v.pasta = f.id
+       LEFT JOIN streamings u ON v.codigo_cliente = u.codigo_cliente
        ${whereClause}
        ORDER BY v.id DESC`,
       params
@@ -54,7 +55,7 @@ router.get('/videos', authMiddleware, async (req, res) => {
     
     for (const video of rows) {
       try {
-        const serverId = video.codigo_servidor || 1;
+        const serverId = video.servidor_id || 1;
         
         // Construir caminho correto no servidor
         let serverPath = video.caminho;
@@ -286,9 +287,9 @@ router.post('/convert', authMiddleware, async (req, res) => {
 
     // Buscar dados do vídeo
     const [videoRows] = await db.execute(
-      `SELECT v.*, s.codigo_servidor, s.identificacao as folder_name 
+      `SELECT v.*, f.servidor_id, f.nome_sanitizado as folder_name 
        FROM videos v 
-       LEFT JOIN streamings s ON v.pasta = s.codigo 
+       LEFT JOIN folders f ON v.pasta = f.id 
        WHERE v.id = ? AND v.codigo_cliente = ?`,
       [video_id, userId]
     );
@@ -301,7 +302,7 @@ router.post('/convert', authMiddleware, async (req, res) => {
     }
 
     const video = videoRows[0];
-    const serverId = video.codigo_servidor || 1;
+    const serverId = video.servidor_id || 1;
     const userBitrateLimit = req.user.bitrate || 2500;
 
     // Construir caminho correto no servidor
@@ -443,7 +444,7 @@ router.post('/convert', authMiddleware, async (req, res) => {
         // Atualizar espaço usado na pasta
         const spaceMB = Math.ceil(convertedSize / (1024 * 1024));
         await db.execute(
-          'UPDATE streamings SET espaco_usado = espaco_usado + ? WHERE codigo = ?',
+          'UPDATE folders SET espaco_usado = espaco_usado + ? WHERE id = ?',
           [spaceMB, video.pasta]
         );
         

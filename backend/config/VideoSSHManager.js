@@ -184,13 +184,13 @@ class VideoSSHManager {
                         
                         const codigoCliente = clienteRows.length > 0 ? clienteRows[0].codigo_cliente : null;
                         
-                        // Buscar ID da pasta baseado no caminho
+                        // Buscar ID da pasta baseado no nome
                         const [pastaRows] = await db.execute(
-                            'SELECT codigo FROM streamings WHERE identificacao = ? AND codigo_cliente = ? LIMIT 1',
-                            [video.folder === 'root' ? userLogin : video.folder, codigoCliente]
+                            'SELECT id FROM folders WHERE user_id = ? AND nome_sanitizado = ? LIMIT 1',
+                            [codigoCliente, video.folder === 'root' ? 'default' : video.folder]
                         );
                         
-                        const pastaId = pastaRows.length > 0 ? pastaRows[0].codigo : null;
+                        const pastaId = pastaRows.length > 0 ? pastaRows[0].id : null;
                         
                         // Inserir novo vídeo na tabela videos
                         const duracao = this.formatDuration(video.duration);
@@ -263,15 +263,18 @@ class VideoSSHManager {
         try {
             const db = require('./database');
             
-            // Buscar todas as pastas do usuário
+            // Buscar todas as pastas do usuário na nova tabela
             const [folderRows] = await db.execute(
-                'SELECT codigo, identificacao, codigo_cliente, codigo_servidor FROM streamings WHERE usuario = ? OR email LIKE ?',
+                `SELECT f.id, f.nome_sanitizado, f.user_id, f.servidor_id 
+                 FROM folders f
+                 JOIN streamings s ON f.user_id = s.codigo_cliente
+                 WHERE s.usuario = ? OR s.email LIKE ?`,
                 [userLogin, `${userLogin}@%`]
             );
             
             for (const folder of folderRows) {
-                const serverId = folder.codigo_servidor || 1;
-                const folderName = folder.identificacao;
+                const serverId = folder.servidor_id || 1;
+                const folderName = folder.nome_sanitizado;
                 
                 // Calcular espaço real no servidor
                 let realServerSizeMB = 0;
@@ -291,7 +294,7 @@ class VideoSSHManager {
                     `SELECT COALESCE(SUM(CEIL(tamanho_arquivo / (1024 * 1024))), 0) as used_mb
                      FROM videos 
                      WHERE pasta = ? AND codigo_cliente = ?`,
-                    [folder.codigo, folder.codigo_cliente]
+                    [folder.id, folder.user_id]
                 );
                 
                 const usedMB = spaceRows[0]?.used_mb || 0;
@@ -301,11 +304,11 @@ class VideoSSHManager {
                 
                 // Atualizar espaço usado na pasta
                 await db.execute(
-                    'UPDATE streamings SET espaco_usado = ? WHERE codigo = ?',
-                    [finalUsedMB, folder.codigo]
+                    'UPDATE folders SET espaco_usado = ? WHERE id = ?',
+                    [finalUsedMB, folder.id]
                 );
                 
-                console.log(`📊 Espaço recalculado para pasta ${folder.identificacao}: ${finalUsedMB}MB (Servidor: ${realServerSizeMB}MB, DB: ${usedMB}MB)`);
+                console.log(`📊 Espaço recalculado para pasta ${folder.nome_sanitizado}: ${finalUsedMB}MB (Servidor: ${realServerSizeMB}MB, DB: ${usedMB}MB)`);
             }
             
         } catch (error) {

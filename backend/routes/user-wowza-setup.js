@@ -14,11 +14,11 @@ router.get('/status', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Verificar estrutura completa
         const structureStatus = await SSHManager.checkCompleteUserStructure(serverId, userLogin);
@@ -61,11 +61,11 @@ router.post('/create', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Verificar se já existe
         if (!force_recreate) {
@@ -128,11 +128,11 @@ router.post('/migrate', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Buscar vídeos do usuário no banco
         const [videoRows] = await db.execute(
@@ -151,13 +151,13 @@ router.post('/migrate', authMiddleware, async (req, res) => {
 
         // Buscar dados das pastas
         const [folderRows] = await db.execute(
-            'SELECT codigo, identificacao FROM streamings WHERE codigo_cliente = ?',
+            'SELECT id, nome_sanitizado FROM folders WHERE user_id = ?',
             [userId]
         );
 
         const folderMap = {};
         folderRows.forEach(folder => {
-            folderMap[folder.codigo] = folder.identificacao;
+            folderMap[folder.id] = folder.nome_sanitizado;
         });
 
         let migratedCount = 0;
@@ -232,11 +232,11 @@ router.get('/urls/:folderName/:fileName', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Gerar URLs usando nova estrutura
         const urls = WowzaConfigManager.buildVideoUrls(userLogin, folderName, fileName, serverId);

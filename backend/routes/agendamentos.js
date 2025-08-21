@@ -115,10 +115,10 @@ router.post('/', authMiddleware, async (req, res) => {
     try {
       const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
       const [serverRows] = await db.execute(
-        'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+        'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
         [req.user.id]
       );
-      const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+      const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
       
       const PlaylistSMILService = require('../services/PlaylistSMILService');
       await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
@@ -163,10 +163,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     try {
       const userLogin = req.user.usuario || (req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`);
       const [serverRows] = await db.execute(
-        'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+        'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
         [req.user.id]
       );
-      const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+      const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
       
       const PlaylistSMILService = require('../services/PlaylistSMILService');
       await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);

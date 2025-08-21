@@ -32,9 +32,12 @@ interface Video {
 interface Folder {
   id: number;
   nome: string;
-  espaco?: number;
+  nome_sanitizado: string;
+  caminho_servidor: string;
+  servidor_id: number;
   espaco_usado?: number;
-  servidor_id?: number;
+  data_criacao: string;
+  status: number;
   video_count_db?: number;
   server_info?: {
     exists: boolean;
@@ -43,7 +46,6 @@ interface Folder {
     path: string;
     error?: string;
   };
-  percentage_used?: number;
 }
 
 interface UploadProgress {
@@ -694,12 +696,8 @@ const GerenciarVideos: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+                    <span>{folder.espaco_usado || 0} MB</span>
           )}
-
-          {videos.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Video className="h-16 w-16 mx-auto mb-4 text-gray-300" />
               <p className="text-lg mb-2">Nenhum vídeo encontrado</p>
               <p className="text-sm">Faça upload de vídeos para começar</p>
             </div>
@@ -835,18 +833,10 @@ const GerenciarVideos: React.FC = () => {
                 </div>
                 {selectedFolderData.server_info && (
                   <div>
-                    <span className="text-gray-600">Arquivos no servidor:</span>
-                    <span className={`ml-2 font-medium ${selectedFolderData.server_info.exists ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                      {selectedFolderData.server_info.exists ? selectedFolderData.server_info.file_count : 'Pasta não existe'}
-                    </span>
-                  </div>
                 )}
                 <div>
                   <span className="text-gray-600">Espaço usado:</span>
-                  <span className="ml-2 font-medium">
-                    {selectedFolderData.espaco_usado || 0} MB / {selectedFolderData.espaco || 1000} MB
-                  </span>
+                  <span className="ml-2 font-medium">{selectedFolderData.espaco_usado || 0} MB</span>
                 </div>
               </div>
 

@@ -596,12 +596,21 @@ router.delete('/:videoId', authMiddleware, async (req, res) => {
         const folderName = pathParts[4]; // /home/streaming/usuario/pasta/arquivo.mp4
         
         try {
-          await db.execute(
-            'UPDATE streamings SET espaco_usado = GREATEST(espaco_usado - ?, 0) WHERE codigo_cliente = ? AND identificacao = ?',
-            [spaceMB, userId, folderName]
+          // Buscar ID da pasta pelo nome
+          const [folderIdRows] = await db.execute(
+            'SELECT id FROM folders WHERE user_id = ? AND nome_sanitizado = ?',
+            [userId, folderName]
           );
           
-          console.log(`📊 Espaço liberado: ${spaceMB}MB na pasta ${folderName}`);
+          if (folderIdRows.length > 0) {
+            const folderId = folderIdRows[0].id;
+            await db.execute(
+              'UPDATE folders SET espaco_usado = GREATEST(espaco_usado - ?, 0) WHERE id = ?',
+              [spaceMB, folderId]
+            );
+            
+            console.log(`📊 Espaço liberado: ${spaceMB}MB na pasta ${folderName}`);
+          }
         } catch (updateError) {
           console.warn('Erro ao atualizar espaço usado:', updateError.message);
         }
@@ -639,7 +648,7 @@ router.post('/sync-database', authMiddleware, async (req, res) => {
 
     // Buscar dados da pasta
     const [folderRows] = await db.execute(
-      'SELECT identificacao, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT nome_sanitizado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -651,8 +660,8 @@ router.post('/sync-database', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const folderName = folder.identificacao;
+    const serverId = folder.servidor_id || 1;
+    const folderName = folder.nome_sanitizado;
 
     // Garantir que estrutura existe no servidor
     await SSHManager.createCompleteUserStructure(serverId, userLogin, {
@@ -995,7 +1004,7 @@ router.get('/folders/:folderId/usage', authMiddleware, async (req, res) => {
 
     // Buscar dados da pasta
     const [folderRows] = await db.execute(
-      'SELECT identificacao, espaco, espaco_usado, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT nome_sanitizado, espaco_usado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -1018,7 +1027,13 @@ router.get('/folders/:folderId/usage', authMiddleware, async (req, res) => {
     
     const realUsedMB = videoUsageRows[0]?.real_used_mb || 0;
     const databaseUsedMB = folder.espaco_usado || 0;
-    const totalMB = folder.espaco || 1000;
+    
+    // Buscar limite total do usuário
+    const [userRows] = await db.execute(
+      'SELECT espaco FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      [userId]
+    );
+    const totalMB = userRows.length > 0 ? userRows[0].espaco : 1000;
     
     // Usar o maior valor entre banco e cálculo real
     const usedMB = Math.max(realUsedMB, databaseUsedMB);
@@ -1028,10 +1043,10 @@ router.get('/folders/:folderId/usage', authMiddleware, async (req, res) => {
     // Atualizar banco com valor correto se houver diferença significativa
     if (Math.abs(usedMB - databaseUsedMB) > 5) {
       await db.execute(
-        'UPDATE streamings SET espaco_usado = ? WHERE codigo = ?',
+        'UPDATE folders SET espaco_usado = ? WHERE id = ?',
         [usedMB, folderId]
       );
-      console.log(`📊 Uso de espaço atualizado para pasta ${folder.identificacao}: ${usedMB}MB`);
+      console.log(`📊 Uso de espaço atualizado para pasta ${folder.nome_sanitizado}: ${usedMB}MB`);
     }
 
     res.json({
@@ -1065,7 +1080,7 @@ router.post('/folders/:folderId/sync', authMiddleware, async (req, res) => {
 
     // Buscar dados da pasta
     const [folderRows] = await db.execute(
-      'SELECT identificacao, codigo_servidor FROM streamings WHERE codigo = ? AND codigo_cliente = ?',
+      'SELECT nome_sanitizado, servidor_id FROM folders WHERE id = ? AND user_id = ?',
       [folderId, userId]
     );
 
@@ -1077,8 +1092,8 @@ router.post('/folders/:folderId/sync', authMiddleware, async (req, res) => {
     }
 
     const folder = folderRows[0];
-    const serverId = folder.codigo_servidor || 1;
-    const folderName = folder.identificacao;
+    const serverId = folder.servidor_id || 1;
+    const folderName = folder.nome_sanitizado;
 
     // Limpar arquivos órfãos
     const cleanupResult = await VideoSSHManager.cleanupOrphanedFiles(serverId, userLogin);

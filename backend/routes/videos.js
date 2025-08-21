@@ -449,11 +449,12 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
 
     const [userRows] = await db.execute(
       `SELECT 
-        s.codigo_servidor, s.identificacao as folder_name,
-        s.espaco, s.espaco_usado
-       FROM streamings s 
-       WHERE s.codigo = ? AND (s.codigo_cliente = ? OR s.codigo = ?)`,
-      [folderId, userId, userId]
+        f.servidor_id, f.nome_sanitizado as folder_name,
+        u.espaco, f.espaco_usado
+       FROM folders f
+       LEFT JOIN streamings u ON f.user_id = u.codigo_cliente
+       WHERE f.id = ? AND f.user_id = ?`,
+      [folderId, userId]
     );
     if (userRows.length === 0) {
       console.log(`❌ Pasta ${folderId} não encontrada para usuário ${userId}`);
@@ -461,26 +462,26 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
     }
 
     const userData = userRows[0];
-    const serverId = userData.codigo_servidor || 1;
+    const serverId = userData.servidor_id || 1;
     const folderName = userData.folder_name;
 
     console.log(`📁 Pasta encontrada: ${folderName}, Servidor: ${serverId}`);
 
     const spaceMB = Math.ceil(tamanho / (1024 * 1024));
-    const availableSpace = userData.espaco - userData.espaco_usado;
+    const availableSpace = userData.espaco - (userData.espaco_usado || 0);
 
     if (spaceMB > availableSpace) {
       console.log(`❌ Espaço insuficiente: ${spaceMB}MB necessário, ${availableSpace}MB disponível`);
       await fs.unlink(req.file.path).catch(() => { });
       return res.status(400).json({
         error: `Espaço insuficiente. Necessário: ${spaceMB}MB, Disponível: ${availableSpace}MB`,
-        details: `Seu plano permite ${userData.espaco}MB de armazenamento. Atualmente você está usando ${userData.espaco_usado}MB. Para enviar este arquivo, você precisa de mais ${spaceMB - availableSpace}MB livres.`,
+        details: `Seu plano permite ${userData.espaco}MB de armazenamento. Atualmente você está usando ${userData.espaco_usado || 0}MB. Para enviar este arquivo, você precisa de mais ${spaceMB - availableSpace}MB livres.`,
         spaceInfo: {
           required: spaceMB,
           available: availableSpace,
           total: userData.espaco,
-          used: userData.espaco_usado,
-          percentage: Math.round((userData.espaco_usado / userData.espaco) * 100)
+          used: userData.espaco_usado || 0,
+          percentage: Math.round(((userData.espaco_usado || 0) / userData.espaco) * 100)
         }
       });
     }
@@ -565,7 +566,7 @@ router.post('/upload', authMiddleware, upload.single('video'), async (req, res) 
 
       // Atualizar espaço usado na pasta
       await db.execute(
-        'UPDATE streamings SET espaco_usado = espaco_usado + ? WHERE codigo = ?',
+        'UPDATE folders SET espaco_usado = espaco_usado + ? WHERE id = ?',
         [spaceMB, folderId]
       );
 
@@ -905,10 +906,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Buscar servidor para execução via SSH
     const [serverRows] = await db.execute(
-      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
       [userId]
     );
-    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
     let fileSize = tamanho_arquivo || 0;
     // Estrutura correta: verificar se já está no formato correto
@@ -950,7 +951,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     
     // Atualizar espaço usado na pasta específica
     await db.execute(
-      'UPDATE streamings SET espaco_usado = GREATEST(espaco_usado - ?, 0) WHERE codigo = ?',
+      'UPDATE folders SET espaco_usado = GREATEST(espaco_usado - ?, 0) WHERE id = ?',
       [spaceMB, pasta]
     );
     

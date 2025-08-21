@@ -30,11 +30,11 @@ router.get('/ssh/:videoId', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Construir caminho completo no servidor
         const fullPath = `/usr/local/WowzaStreamingEngine/content/${relativePath}`;
@@ -122,11 +122,11 @@ router.get('/info/:videoId', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
         const fullPath = `/usr/local/WowzaStreamingEngine/content/${relativePath}`;
 
         // Obter informações detalhadas
@@ -207,11 +207,11 @@ router.post('/convert/:videoId', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
         const inputPath = `/usr/local/WowzaStreamingEngine/content/${relativePath}`;
         const outputPath = inputPath.replace(/\.[^/.]+$/, `_${targetBitrate}kbps.mp4`);
 
@@ -295,11 +295,11 @@ router.get('/thumbnail/:videoId', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
         const videoPath = `/usr/local/WowzaStreamingEngine/content/${relativePath}`;
         const thumbnailPath = videoPath.replace(/\.[^/.]+$/, '_thumb.jpg');
 
@@ -345,11 +345,11 @@ router.get('/urls/:userLogin/:folderName/:fileName', authMiddleware, async (req,
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Gerar URLs de streaming
         const streamingUrls = VideoStreamingService.generateStreamingUrls(
@@ -418,11 +418,11 @@ router.post('/batch-convert', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         const results = [];
 
@@ -503,11 +503,11 @@ router.delete('/cleanup/:userLogin', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
 
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Executar limpeza
         const cleanupResult = await VideoStreamingService.cleanupTempFiles(serverId, userLogin);

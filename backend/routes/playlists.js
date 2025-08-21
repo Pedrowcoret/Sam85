@@ -158,10 +158,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
       try {
         const userLogin = req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`;
         const [serverRows] = await db.execute(
-          'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+          'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
           [req.user.id]
         );
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
         
         await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
         console.log(`✅ Arquivo SMIL atualizado para usuário ${userLogin} em /home/streaming/${userLogin}/playlists_agendamentos.smil`);
@@ -220,10 +220,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const userLogin = req.user.usuario || (req.user.email ? req.user.email.split('@')[0] : `user_${req.user.id}`);
     const [serverRows] = await db.execute(
-      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
       [req.user.id]
     );
-    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
     
     await PlaylistSMILService.updateUserSMIL(req.user.id, userLogin, serverId);
     console.log(`✅ Arquivo SMIL atualizado após remoção da playlist para usuário ${userLogin} em /home/streaming/${userLogin}/playlists_agendamentos.smil`);
@@ -244,10 +244,10 @@ router.post('/generate-smil', authMiddleware, async (req, res) => {
     
     // Buscar servidor do usuário
     const [serverRows] = await db.execute(
-      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
       [userId]
     );
-    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
     // Gerar arquivo SMIL
     const result = await PlaylistSMILService.generateUserSMIL(userId, userLogin, serverId);

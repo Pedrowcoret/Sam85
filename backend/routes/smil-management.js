@@ -13,10 +13,10 @@ router.get('/status', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Verificar se arquivo SMIL existe
         const smilExists = await PlaylistSMILService.checkSMILExists(serverId, userLogin);
@@ -59,10 +59,10 @@ router.post('/generate', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Verificar se já existe (se não for regeneração forçada)
         if (!force_regenerate) {
@@ -114,10 +114,10 @@ router.delete('/remove', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Remover arquivo SMIL
         const result = await PlaylistSMILService.removeUserSMIL(serverId, userLogin);
@@ -196,10 +196,10 @@ router.get('/content/:userLogin', authMiddleware, async (req, res) => {
 
         // Buscar servidor do usuário
         const [serverRows] = await db.execute(
-            'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+            'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
             [userId]
         );
-        const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+        const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
         // Ler conteúdo do arquivo SMIL
         const smilPath = `/home/streaming/${userLogin}/playlists_agendamentos.smil`;

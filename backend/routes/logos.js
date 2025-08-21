@@ -99,11 +99,11 @@ router.post('/', authMiddleware, upload.single('logo'), async (req, res) => {
 
     // Buscar servidor do usuário
     const [serverRows] = await db.execute(
-      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
       [userId]
     );
 
-    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
 
     try {
       // Garantir que o diretório do usuário existe no servidor
@@ -185,11 +185,11 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Buscar servidor do usuário
     const [serverRows] = await db.execute(
-      'SELECT codigo_servidor FROM streamings WHERE codigo_cliente = ? LIMIT 1',
+      'SELECT servidor_id FROM folders WHERE user_id = ? LIMIT 1',
       [userId]
     );
 
-    const serverId = serverRows.length > 0 ? serverRows[0].codigo_servidor : 1;
+    const serverId = serverRows.length > 0 ? serverRows[0].servidor_id : 1;
     // Remover arquivo físico
     try {
       // Nova estrutura: /home/streaming/[usuario]/logos/
